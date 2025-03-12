@@ -16,11 +16,8 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Make build script executable
-RUN chmod +x build-no-check.sh
-
-# Build the application (bypassing type checks)
-RUN ./build-no-check.sh
+# Build the application (using pnpm to run vite)
+RUN pnpm vite build
 
 # Production stage
 FROM nginx:alpine
