@@ -25,8 +25,12 @@ FROM nginx:alpine
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx config
+# Copy nginx config template and startup script
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY env.sh /docker-entrypoint.d/40-env.sh
+
+# Make the shell script executable
+RUN chmod +x /docker-entrypoint.d/40-env.sh
 
 # Expose port
 EXPOSE 80
