@@ -39,5 +39,6 @@
     "@preact/preset-vite": "^2.10.1",
     "@types/fabric": "^5.3.10",
     "rollup-plugin-visualizer": "^5.14.0"
-  }
+  },
+  "packageManager": "pnpm@10.6.2"
 }
