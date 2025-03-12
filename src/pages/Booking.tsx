@@ -40,7 +40,7 @@ interface Booking {
     user_id: string;
     date: string;
     time_slot: 'full_day' | 'morning' | 'afternoon';
-    user_name?: string;
+    display_name: string;
 }
 
 interface DeskShape {
@@ -54,49 +54,8 @@ interface DeskShape {
     rotation: number;
 }
 
-// Add an interface for the user mapping
-interface UserMapping {
-    user_id: string;
-    name: string;
-}
-
 // Store canvas instance outside of component to prevent multiple instances
 let globalCanvasInstance: fabric.Canvas | null = null;
-
-// Helper to manage user mapping cache
-const USER_MAPPINGS_KEY = 'booking_user_mappings';
-const USER_MAPPINGS_EXPIRY_KEY = 'booking_user_mappings_expiry';
-const CACHE_EXPIRY_MS = 3600000; // 1 hour in milliseconds
-
-const getUserMappingsFromCache = (): Record<string, string> | null => {
-    try {
-        const expiryStr = localStorage.getItem(USER_MAPPINGS_EXPIRY_KEY);
-        if (!expiryStr) return null;
-        
-        const expiry = parseInt(expiryStr, 10);
-        if (Date.now() > expiry) {
-            // Cache expired
-            localStorage.removeItem(USER_MAPPINGS_KEY);
-            localStorage.removeItem(USER_MAPPINGS_EXPIRY_KEY);
-            return null;
-        }
-        
-        const mappingsStr = localStorage.getItem(USER_MAPPINGS_KEY);
-        return mappingsStr ? JSON.parse(mappingsStr) : null;
-    } catch (error) {
-        console.error('Error reading user mappings from cache:', error);
-        return null;
-    }
-};
-
-const saveUserMappingsToCache = (mappings: Record<string, string>) => {
-    try {
-        localStorage.setItem(USER_MAPPINGS_KEY, JSON.stringify(mappings));
-        localStorage.setItem(USER_MAPPINGS_EXPIRY_KEY, (Date.now() + CACHE_EXPIRY_MS).toString());
-    } catch (error) {
-        console.error('Error saving user mappings to cache:', error);
-    }
-};
 
 const BookingPage = () => {
     const { session, setFlashMessages } = useContext(AppContext) as AppContextType;
@@ -108,9 +67,7 @@ const BookingPage = () => {
     const [dates, setDates] = useState<string[]>([]);
     const [deskShapes, setDeskShapes] = useState<DeskShape[]>([]);
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-    const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
     const canvasContainerId = useRef(`booking-canvas-container-${Date.now()}`);
-    const userMappingFetchedRef = useRef(false);
     
     // Responsive design helper
     const isMobile = windowWidth < 768;
@@ -139,58 +96,6 @@ const BookingPage = () => {
         globalCanvasInstance.setHeight(canvasHeight);
         globalCanvasInstance.renderAll();
     };
-
-    // Fetch user mappings only once when component mounts
-    useEffect(() => {
-        const fetchUserMappings = async () => {
-            // If we've already fetched or there's no session, don't fetch again
-            if (userMappingFetchedRef.current || !session) return;
-            
-            // Check for cached mappings first
-            const cachedMappings = getUserMappingsFromCache();
-            if (cachedMappings) {
-                console.log('Using cached user mappings');
-                setUserNameMap(cachedMappings);
-                userMappingFetchedRef.current = true;
-                return;
-            }
-            
-            try {
-                console.log('Fetching user mappings from edge function');
-                const { data, error } = await supabase.functions.invoke('my-function');
-                
-                if (error) {
-                    console.error('Error fetching user mappings:', error);
-                } else if (data) {
-                    console.log('Fetched user mappings:', data);
-                    
-                    // Convert the array to a lookup object
-                    const mappings = data.reduce((acc: Record<string, string>, item: UserMapping) => {
-                        acc[item.user_id] = item.name;
-                        return acc;
-                    }, {});
-                    
-                    setUserNameMap(mappings);
-                    
-                    // Save to cache for future use
-                    saveUserMappingsToCache(mappings);
-                    
-                    // Mark as fetched so we don't fetch again
-                    userMappingFetchedRef.current = true;
-                }
-            } catch (error) {
-                console.error('Error calling user mapping function:', error);
-            }
-        };
-        
-        fetchUserMappings();
-        
-        // Clean up function
-        return () => {
-            // Reset the flag when component unmounts
-            userMappingFetchedRef.current = false;
-        };
-    }, [session]);
 
     // Generate dates (only once, on initial mount)
     useEffect(() => {
@@ -248,12 +153,8 @@ const BookingPage = () => {
     // Fetch desks when office space changes
     useEffect(() => {
         const fetchDesks = async () => {
-            if (!selectedOfficeSpaceId) {
-                setDesks([]);
-                return;
-            }
-
-            console.log(`BookingPage: Fetching desks for office ${selectedOfficeSpaceId}`);
+            if (!selectedOfficeSpaceId) return;
+            console.log('BookingPage: Fetching desks for office space:', selectedOfficeSpaceId);
             setLoading(true);
             
             try {
@@ -266,22 +167,17 @@ const BookingPage = () => {
                 if (error) {
                     console.error('Error fetching desks:', error);
                     setFlashMessages([{ category: 'error', message: error.message }]);
-                    setLoading(false);
                 } else {
                     console.log('BookingPage: Fetched desks:', data);
-                    const deskData = data || [];
-                    setDesks(deskData);
-                    
-                    // Immediately fetch bookings after desks are fetched
-                    if (deskData.length > 0) {
-                        await fetchBookingsForDesks(deskData);
-                    } else {
-                        setLoading(false);
+                    setDesks(data || []);
+                    if (data && data.length > 0) {
+                        fetchBookingsForDesks(data);
                     }
                 }
             } catch (error) {
                 console.error('Error fetching desks:', error);
                 setFlashMessages([{ category: 'error', message: 'An unexpected error occurred.' }]);
+            } finally {
                 setLoading(false);
             }
         };
@@ -289,25 +185,19 @@ const BookingPage = () => {
         fetchDesks();
     }, [selectedOfficeSpaceId, setFlashMessages]);
 
-    // Define fetchBookings as a reusable function
+    // Fetch bookings for desks
     const fetchBookingsForDesks = async (desksList: Desk[]) => {
-        if (!desksList.length || dates.length === 0) {
-            setBookings([]);
-            setLoading(false);
-            return;
-        }
-
-        console.log(`BookingPage: Fetching bookings for ${desksList.length} desks`);
+        if (!selectedOfficeSpaceId) return;
+        console.log('BookingPage: Fetching bookings for desks');
         
         try {
-            // Use standard booking fetch
+            const deskIds = desksList.map(desk => desk.id);
             const { data, error } = await supabase
                 .from('bookings')
-                .select('id, desk_id, user_id, date, time_slot')
-                .in('desk_id', desksList.map(desk => desk.id))
+                .select('id, desk_id, user_id, date, time_slot, display_name')
+                .in('desk_id', deskIds)
                 .gte('date', dates[0])
-                .lte('date', dates[dates.length - 1])
-                .order('date');
+                .lte('date', dates[dates.length - 1]);
 
             if (error) {
                 console.error('Error fetching bookings:', error);
@@ -319,19 +209,8 @@ const BookingPage = () => {
         } catch (error) {
             console.error('Error fetching bookings:', error);
             setFlashMessages([{ category: 'error', message: 'An unexpected error occurred.' }]);
-        } finally {
-            setLoading(false);
         }
     };
-
-    // Keep the existing useEffect for booking updates when dates change
-    useEffect(() => {
-        // Only fetch if desks are already loaded but bookings need updating
-        // This handles cases like date changes or viewing different weeks
-        if (desks.length > 0 && selectedOfficeSpaceId) {
-            fetchBookingsForDesks(desks);
-        }
-    }, [dates, setFlashMessages]); // Only update on date changes
 
     // Render layout when office space or bookings change
     useEffect(() => {
@@ -456,59 +335,51 @@ const BookingPage = () => {
     };
 
     const handleBookingSubmit = async (deskId: string, date: string, timeSlot: 'morning' | 'afternoon' | 'full_day') => {
-        if (!session) {
+        if (!session?.user) {
             setFlashMessages([{ category: 'error', message: 'You must be logged in to make a booking.' }]);
-            window.location.href = "/login";
             return;
         }
 
-        console.log(`BookingPage: Creating booking for desk ${deskId} on ${date} (${timeSlot})`);
-        setLoading(true);
-        
         try {
-            const { error } = await supabase.from('bookings').insert([
-                {
-                    desk_id: deskId,
-                    user_id: session.user.id,
-                    date: date,
-                    time_slot: timeSlot,
-                },
-            ]);
+            // Get the user's display name from metadata with correct key "Display name"
+            const displayName = session.user.user_metadata['Display name'] || 'Unknown User';
+
+            const { data, error } = await supabase
+                .from('bookings')
+                .insert([
+                    {
+                        desk_id: deskId,
+                        user_id: session.user.id,
+                        date: date,
+                        time_slot: timeSlot,
+                        display_name: displayName
+                    }
+                ])
+                .select();
 
             if (error) {
                 console.error('Error creating booking:', error);
                 setFlashMessages([{ category: 'error', message: error.message }]);
             } else {
+                console.log('BookingPage: Created booking:', data);
                 setFlashMessages([{ category: 'success', message: 'Booking created successfully!' }]);
-                
-                // Fetch updated bookings
-                const { data, error: fetchError } = await supabase
-                    .from('bookings')
-                    .select('id, desk_id, user_id, date, time_slot')
-                    .in('desk_id', desks.map((desk) => desk.id))
-                    .gte('date', dates[0])
-                    .lte('date', dates[dates.length - 1])
-                    .order('date');
-
-                if (!fetchError && data) {
-                    setBookings(data);
+                // Refresh bookings
+                const updatedDesks = desks.filter(desk => desk.office_space_id === selectedOfficeSpaceId);
+                if (updatedDesks.length > 0) {
+                    fetchBookingsForDesks(updatedDesks);
                 }
             }
         } catch (error) {
             console.error('Error creating booking:', error);
             setFlashMessages([{ category: 'error', message: 'An unexpected error occurred.' }]);
-        } finally {
-            setLoading(false);
         }
     };
 
-    // Update booking deletion to preserve scroll position
-    const handleDeleteBooking = async (bookingId: string, event: React.MouseEvent) => {
-        // Prevent default to avoid page navigation/refresh
-        event.preventDefault();
-        
-        console.log(`BookingPage: Deleting booking ${bookingId}`);
-        setLoading(true);
+    const handleBookingDelete = async (bookingId: string) => {
+        if (!session) {
+            setFlashMessages([{ category: 'error', message: 'You must be logged in to delete a booking.' }]);
+            return;
+        }
         
         try {
             const { error } = await supabase
@@ -521,15 +392,15 @@ const BookingPage = () => {
                 setFlashMessages([{ category: 'error', message: error.message }]);
             } else {
                 setFlashMessages([{ category: 'success', message: 'Booking deleted successfully!' }]);
-                
-                // Update bookings without refreshing the entire page
-                setBookings(prevBookings => prevBookings.filter(b => b.id !== bookingId));
+                // Refresh bookings after delete
+                const updatedDesks = desks.filter(desk => desk.office_space_id === selectedOfficeSpaceId);
+                if (updatedDesks.length > 0) {
+                    fetchBookingsForDesks(updatedDesks);
+                }
             }
         } catch (error) {
             console.error('Error deleting booking:', error);
             setFlashMessages([{ category: 'error', message: 'An unexpected error occurred.' }]);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -544,6 +415,127 @@ const BookingPage = () => {
         }
         bookingsData[booking.desk_id][booking.date].push(booking);
     });
+
+    const renderBookingSlots = (desk: Desk, date: string) => {
+        const existingBookings = bookings.filter(
+            booking => booking.desk_id === desk.id && booking.date === date
+        );
+
+        const morningBooked = existingBookings.some(b => b.time_slot === 'morning' || b.time_slot === 'full_day');
+        const afternoonBooked = existingBookings.some(b => b.time_slot === 'afternoon' || b.time_slot === 'full_day');
+        const fullDayBooked = existingBookings.some(b => b.time_slot === 'full_day');
+
+        return (
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '4px',
+                padding: '8px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+            }}>
+                {/* Show existing bookings with improved delete button */}
+                {existingBookings.map(booking => (
+                    <div key={booking.id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#f0f0f0',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        marginBottom: '4px'
+                    }}>
+                        <div>
+                            <div style={{ fontWeight: 'bold' }}>
+                                {booking.time_slot === 'morning' ? 'Morning' :
+                                 booking.time_slot === 'afternoon' ? 'Afternoon' : 'Full Day'}
+                            </div>
+                            <div style={{ fontSize: '0.9em', color: '#555' }}>
+                                Booked by: {booking.display_name}
+                            </div>
+                        </div>
+                        {session?.user?.id === booking.user_id && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation(); // Prevent event bubbling
+                                    handleBookingDelete(booking.id);
+                                }}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#ff4444',
+                                    cursor: 'pointer',
+                                    padding: '4px 8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    borderRadius: '4px',
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#ffeeee'}
+                                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                ×
+                            </button>
+                        )}
+                    </div>
+                ))}
+
+                {/* Show available booking options */}
+                {!fullDayBooked && (
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                    }}>
+                        {!morningBooked && (
+                            <button
+                                onClick={() => handleBookingSubmit(desk.id, date, 'morning')}
+                                style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Book Morning
+                            </button>
+                        )}
+                        {!afternoonBooked && (
+                            <button
+                                onClick={() => handleBookingSubmit(desk.id, date, 'afternoon')}
+                                style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Book Afternoon
+                            </button>
+                        )}
+                        {!morningBooked && !afternoonBooked && (
+                            <button
+                                onClick={() => handleBookingSubmit(desk.id, date, 'full_day')}
+                                style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Book Full Day
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div className="booking-page" style={{ 
@@ -640,7 +632,6 @@ const BookingPage = () => {
                             fontSize: '0.8rem',
                             color: '#666'
                         }}>
-                            Tip: Red desks are already booked
                         </div>
                     )}
                 </div>
@@ -713,103 +704,7 @@ const BookingPage = () => {
                                                 border: '1px solid #ddd',
                                                 verticalAlign: 'top'
                                             }}>
-                                                {deskBookings.map((booking) => (
-                                                    <div key={booking.id} className="booking-slot" style={{ 
-                                                        marginBottom: '8px',
-                                                        padding: '8px',
-                                                        backgroundColor: booking.user_id === session?.user.id ? '#e6ffe6' : '#ffe0e0',
-                                                        borderRadius: '4px'
-                                                    }}>
-                                                        <div style={{
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            alignItems: 'center',
-                                                            marginBottom: '4px'
-                                                        }}>
-                                                            <span style={{
-                                                                fontWeight: 'bold', 
-                                                                textTransform: 'capitalize'
-                                                            }}>
-                                                                {booking.time_slot.replace('_', ' ')}
-                                                            </span>
-                                                            {booking.user_id === session?.user.id && (
-                                                                <button
-                                                                    onClick={(e) => handleDeleteBooking(booking.id, e)}
-                                                                    style={{
-                                                                        padding: '4px 8px',
-                                                                        background: '#ff4444',
-                                                                        color: 'white',
-                                                                        border: 'none',
-                                                                        borderRadius: '4px',
-                                                                        cursor: 'pointer'
-                                                                    }}
-                                                                >
-                                                                    Delete
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                        {/* Display the user name from the mapping */}
-                                                        <div style={{
-                                                            fontSize: '0.85rem',
-                                                            color: '#555'
-                                                        }}>
-                                                            Booked by: {userNameMap[booking.user_id] || 'Unknown user'}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {deskBookings.length === 0 && (
-                                                    <div className="booking-actions" style={{ 
-                                                        display: 'flex', 
-                                                        flexDirection: 'column',
-                                                        gap: '8px'
-                                                    }}>
-                                                        <button
-                                                            onClick={() => handleBookingSubmit(desk.id, date, 'morning')}
-                                                            disabled={loading}
-                                                            style={{
-                                                                padding: '8px',
-                                                                background: '#4CAF50',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: '4px',
-                                                                cursor: 'pointer',
-                                                                opacity: loading ? 0.7 : 1
-                                                            }}
-                                                        >
-                                                            Morning
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleBookingSubmit(desk.id, date, 'afternoon')}
-                                                            disabled={loading}
-                                                            style={{
-                                                                padding: '8px',
-                                                                background: '#4CAF50',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: '4px',
-                                                                cursor: 'pointer',
-                                                                opacity: loading ? 0.7 : 1
-                                                            }}
-                                                        >
-                                                            Afternoon
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleBookingSubmit(desk.id, date, 'full_day')}
-                                                            disabled={loading}
-                                                            style={{
-                                                                padding: '8px',
-                                                                background: '#4CAF50',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: '4px',
-                                                                cursor: 'pointer',
-                                                                opacity: loading ? 0.7 : 1
-                                                            }}
-                                                        >
-                                                            Full Day
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                {renderBookingSlots(desk, date)}
                                             </td>
                                         );
                                     })}

@@ -1,0 +1,9 @@
+{
+  "name": "booking-tool",
+  "description": "Desk booking application",
+  "keywords": [
+    "dokku",
+    "preact",
+    "docker"
+  ]
+} 

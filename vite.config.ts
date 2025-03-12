@@ -1,8 +1,16 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [
+    preact(),
+    visualizer({
+      open: true,
+      gzipSize: true,
+      brotliSize: true,
+    })
+  ],
   resolve: {
     alias: {
       'react': 'preact/compat',

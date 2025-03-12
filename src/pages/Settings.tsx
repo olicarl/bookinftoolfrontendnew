@@ -64,6 +64,9 @@ const Settings = () => {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
     const canvasRef = useRef<fabric.Canvas | null>(null);
     const canvasContainerId = useRef(`office-canvas-container-${Date.now()}`);
+    const [displayName, setDisplayName] = useState('');
+    const dialogRef = useRef(null);
+    const displayNameInputRef = useRef(null);
 
     // Track window size for responsiveness
     useEffect(() => {
@@ -134,6 +137,14 @@ const Settings = () => {
 
     useEffect(() => {
         fetchOffices();
+    }, [session]);
+
+    // Load the user's display name when the component mounts
+    useEffect(() => {
+        if (session?.user) {
+            const currentDisplayName = session.user.user_metadata['Display name'] || '';
+            setDisplayName(currentDisplayName);
+        }
     }, [session]);
 
     const handleCreateOffice = async (e: Event) => {
@@ -478,6 +489,45 @@ const Settings = () => {
     // Calculate responsive styles
     const isMobile = windowWidth < 768;
 
+    const openDisplayNameDialog = () => {
+        if (dialogRef.current) {
+            dialogRef.current.show();
+            // Focus the input after the dialog is shown
+            setTimeout(() => {
+                if (displayNameInputRef.current) {
+                    displayNameInputRef.current.focus();
+                }
+            }, 100);
+        }
+    };
+    
+    const updateDisplayName = async () => {
+        if (!session) return;
+        
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.auth.updateUser({
+                data: { 'Display name': displayName }
+            });
+            
+            if (error) {
+                console.error('Error updating display name:', error);
+                setFlashMessages([{ category: 'error', message: error.message }]);
+            } else {
+                console.log('Display name updated:', data);
+                setFlashMessages([{ category: 'success', message: 'Display name updated successfully!' }]);
+                if (dialogRef.current) {
+                    dialogRef.current.hide();
+                }
+            }
+        } catch (error) {
+            console.error('Error updating display name:', error);
+            setFlashMessages([{ category: 'error', message: 'An unexpected error occurred.' }]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="settings-container" style={{ 
             maxWidth: '1200px', 
@@ -492,6 +542,21 @@ const Settings = () => {
             }}>
                 Office Management
             </h2>
+
+            {/* Add the display name section */}
+            <div className="office-form" style={{ 
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>Your display name is: <strong>{displayName || 'Not set'}</strong></span>
+                    <sl-button size="small" variant="primary" onClick={openDisplayNameDialog}>
+                        <sl-icon name="pencil"></sl-icon>
+                    </sl-button>
+                </div>
+            </div>
 
             {/* Create new office - Fixed container and input styling */}
             <div style={{ 
@@ -783,6 +848,28 @@ const Settings = () => {
                             {loading ? 'Sending...' : 'Send Invitation'}
                         </button>
                     </div>
+                </div>
+            </sl-dialog>
+
+            {/* Add modal dialog for editing display name */}
+            <sl-dialog ref={dialogRef} label="Edit Display Name" class="dialog-overview">
+                <div style={{ padding: '20px 0' }}>
+                    <sl-input
+                        ref={displayNameInputRef}
+                        label="Display Name"
+                        value={displayName}
+                        onInput={(e) => setDisplayName(e.target.value)}
+                        style={{ width: '100%' }}
+                    ></sl-input>
+                </div>
+                
+                <div slot="footer">
+                    <sl-button variant="neutral" onClick={() => dialogRef.current.hide()}>
+                        Cancel
+                    </sl-button>
+                    <sl-button variant="primary" onClick={updateDisplayName} loading={loading}>
+                        Save
+                    </sl-button>
                 </div>
             </sl-dialog>
         </div>
