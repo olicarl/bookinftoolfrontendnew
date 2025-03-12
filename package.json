@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@shoelace-style/shoelace": "^2.14.0",
+    "@shoelace-style/shoelace": "^2.20.1",
     "@supabase/supabase-js": "^2.49.1",
-    "@types/node": "^20.11.24",
-    "fabric": "^5.3.0",
-    "preact": "^10.19.6",
+    "@types/node": "^20.17.24",
+    "fabric": "^5.5.1",
+    "preact": "^10.26.4",
     "preact-router": "^4.1.2",
     "typescript": "^4.9.5",
-    "vite": "^5.1.0"
+    "vite": "^5.4.14"
   },
   "scripts": {
     "dev": "vite",
