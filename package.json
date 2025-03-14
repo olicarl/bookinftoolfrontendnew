@@ -3,18 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@shoelace-style/shoelace": "^2.20.1",
+    "@shoelace-style/shoelace": "^2.14.0",
     "@supabase/supabase-js": "^2.49.1",
-    "@types/node": "^20.17.24",
-    "fabric": "^5.5.1",
-    "preact": "^10.26.4",
+    "@types/node": "^20.11.24",
+    "fabric": "^5.3.0",
+    "preact": "^10.19.6",
     "preact-router": "^4.1.2",
     "typescript": "^4.9.5",
-    "vite": "^5.4.14"
+    "vite": "^5.1.0"
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest"
   },
@@ -39,6 +39,5 @@
     "@preact/preset-vite": "^2.10.1",
     "@types/fabric": "^5.3.10",
     "rollup-plugin-visualizer": "^5.14.0"
-  },
-  "packageManager": "pnpm@10.6.2"
+  }
 }

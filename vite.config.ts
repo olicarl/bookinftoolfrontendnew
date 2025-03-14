@@ -18,9 +18,5 @@ export default defineConfig({
       'react-dom': 'preact/compat',
       'react/jsx-runtime': 'preact/jsx-runtime'
     }
-  },
-  define: {
-    'import.meta.env.VITE_SUPABASE_URL': '"VITE_SUPABASE_URL_PLACEHOLDER"',
-    'import.meta.env.VITE_SUPABASE_ANON_KEY': '"VITE_SUPABASE_ANON_KEY_PLACEHOLDER"'
   }
 }); 
