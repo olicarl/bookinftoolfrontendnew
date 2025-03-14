@@ -33,8 +33,21 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Create runtime config template
+RUN echo 'window.RUNTIME_CONFIG = { \
+  SUPABASE_URL: "${SUPABASE_URL}", \
+  SUPABASE_ANON_KEY: "${SUPABASE_ANON_KEY}" \
+};' > /usr/share/nginx/html/config.js.template
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Expose port
 EXPOSE 80
+
+# Set entrypoint
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"] 
