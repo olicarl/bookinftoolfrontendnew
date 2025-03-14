@@ -1,16 +1,11 @@
+// vite.config.mjs - ESM version to avoid TypeScript compilation issues
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
-import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
   plugins: [
     preact({
       prerender: { enabled: false }
-    }),
-    visualizer({
-      open: false,
-      gzipSize: true,
-      brotliSize: true,
     })
   ],
   resolve: {
@@ -22,11 +17,6 @@ export default defineConfig({
     }
   },
   build: {
-    target: 'esnext',
-    rollupOptions: {
-      output: {
-        format: 'es'
-      }
-    }
+    target: 'esnext'
   }
 }); 

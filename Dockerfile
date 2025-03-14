@@ -19,7 +19,9 @@ COPY . .
 # Skip TypeScript type checking during build for CI environment
 RUN echo "#!/bin/sh\necho 'Skipping TypeScript type checking'\nexit 0" > /app/node_modules/.bin/tsc && chmod +x /app/node_modules/.bin/tsc
 
-# Build the application
+# Build the application with environment variables to handle ESM/CJS compatibility
+ENV NODE_OPTIONS=--enable-source-maps
+ENV VITE_CJS_IGNORE_WARNING=true
 RUN pnpm build
 
 # Production stage
