@@ -20,9 +20,10 @@ interface AppLayoutProps {
     children: preact.ComponentChildren;
     currentPath: string;
     navigateTo: (path: string) => void;
+    showNavigation?: boolean;
 }
 
-const AppLayout = ({ children, currentPath, navigateTo }: AppLayoutProps) => {
+const AppLayout = ({ children, currentPath, navigateTo, showNavigation = true }: AppLayoutProps) => {
     const { session, flashMessages, setFlashMessages } = useContext(AppContext);
 
     const handleLogout = async () => {
@@ -45,13 +46,19 @@ const AppLayout = ({ children, currentPath, navigateTo }: AppLayoutProps) => {
         display: 'inline-block'
     });
 
+    // Define a consistent navbar height
+    const navHeight = '60px';
+
     return (
         <div className="app-container">
             <nav className="main-nav" style={{ 
                 backgroundColor: '#f5f5f5', 
                 padding: '1rem',
                 marginBottom: '1rem',
-                borderBottom: '1px solid #ddd'
+                borderBottom: '1px solid #ddd',
+                height: navHeight,
+                display: 'flex',
+                alignItems: 'center'
             }}>
                 <div style={{ 
                     display: 'flex', 
@@ -59,37 +66,60 @@ const AppLayout = ({ children, currentPath, navigateTo }: AppLayoutProps) => {
                     alignItems: 'center',
                     maxWidth: '1200px',
                     margin: '0 auto',
-                    width: '100%'
+                    width: '100%',
+                    position: 'relative'
                 }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <Link 
-                            href="/settings"
-                            style={getNavItemStyle('/settings')}
-                        >
-                            Settings
-                        </Link>
-                        <Link 
-                            href="/booking"
-                            style={getNavItemStyle('/booking')}
-                        >
-                            Booking
-                        </Link>
+                    {/* Left side navigation links - only shown when logged in */}
+                    {showNavigation ? (
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <Link 
+                                href="/settings"
+                                style={getNavItemStyle('/settings')}
+                            >
+                                Settings
+                            </Link>
+                            <Link 
+                                href="/booking"
+                                style={getNavItemStyle('/booking')}
+                            >
+                                Booking
+                            </Link>
+                        </div>
+                    ) : (
+                        <div style={{ minWidth: '140px' }}></div>
+                    )} {/* Placeholder div with minimum width to maintain layout */}
+                    
+                    {/* Center - app title */}
+                    <div style={{ 
+                        position: 'absolute',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        fontWeight: 'bold',
+                        fontSize: '1.2rem'
+                    }}>
+                        bookingtool.space
                     </div>
-                    <button 
-                        onClick={handleLogout}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#333',
-                            cursor: 'pointer',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '4px',
-                            fontFamily: 'inherit',
-                            fontSize: 'inherit'
-                        }}
-                    >
-                        Logout
-                    </button>
+                    
+                    {/* Right side - logout button */}
+                    {showNavigation ? (
+                        <button 
+                            onClick={handleLogout}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#333',
+                                cursor: 'pointer',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '4px',
+                                fontFamily: 'inherit',
+                                fontSize: 'inherit'
+                            }}
+                        >
+                            Logout
+                        </button>
+                    ) : (
+                        <div style={{ minWidth: '70px' }}></div>
+                    )} {/* Placeholder div with minimum width to maintain layout */}
                 </div>
             </nav>
 

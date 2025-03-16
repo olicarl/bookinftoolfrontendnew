@@ -3,6 +3,18 @@ import { h } from 'preact';
 import { supabase } from '../supabaseClient';
 import { AppContext } from '../App';
 
+declare module "preact" {
+    namespace JSX {
+        interface IntrinsicElements {
+            "sl-input": any;
+            "sl-button": any;
+            "sl-icon": any;
+            "sl-card": any;
+            "sl-divider": any;
+        }
+    }
+}
+
 const Signup = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -37,103 +49,117 @@ const Signup = () => {
         window.location.href = "/login";
     };
 
+    // Page container styles - takes full available height
+    const pageContainerStyle = {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: 'calc(100vh - 130px)', // Account for navbar and some padding
+        padding: '20px'
+    };
+
+    // Card styles
+    const cardStyle = {
+        width: '100%',
+        maxWidth: '400px',
+        margin: '0 auto',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+        borderRadius: '8px',
+        backgroundColor: '#f5f5f5', // Match navbar color
+        '--padding': '1.5rem', // Increase overall card padding
+    };
+
+    // Form styles
+    const formStyle = {
+        padding: '1rem 0.75rem'
+    };
+
+    // Input container styles
+    const inputContainerStyle = {
+        marginBottom: '1.5rem'
+    };
+
     return (
-        <div className="signup-container" style={{ 
-            maxWidth: '400px', 
-            margin: '100px auto', 
-            padding: '2rem',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-            backgroundColor: 'white'
-        }}>
-            <h2 style={{ textAlign: 'center', marginBottom: '2rem' }}>Create Account</h2>
-            
-            <form onSubmit={handleSignup}>
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Full Name</label>
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.currentTarget.value)}
-                        required
-                        style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            borderRadius: '4px',
-                            border: '1px solid #ddd'
-                        }}
-                    />
+        <div style={pageContainerStyle}>
+            <sl-card style={cardStyle}>
+                <div slot="header" style={{ 
+                    textAlign: 'center', 
+                    fontSize: '1.5rem', 
+                    fontWeight: 'bold',
+                    padding: '0.75rem 0'
+                }}>
+                    Create Account
                 </div>
                 
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Email</label>
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.currentTarget.value)}
-                        required
-                        style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            borderRadius: '4px',
-                            border: '1px solid #ddd'
-                        }}
-                    />
-                </div>
+                <form onSubmit={handleSignup} style={formStyle}>
+                    <div style={inputContainerStyle}>
+                        <sl-input
+                            type="text"
+                            label="Full Name"
+                            placeholder="Enter your full name"
+                            value={name}
+                            onInput={(e: { target: { value: string } }) => setName(e.target.value)}
+                            required
+                            style={{ width: '100%' }}
+                            size="medium"
+                        ></sl-input>
+                    </div>
+                    
+                    <div style={inputContainerStyle}>
+                        <sl-input
+                            type="email"
+                            label="Email"
+                            placeholder="Enter your email"
+                            value={email}
+                            onInput={(e: { target: { value: string } }) => setEmail(e.target.value)}
+                            required
+                            style={{ width: '100%' }}
+                            size="medium"
+                        ></sl-input>
+                    </div>
+                    
+                    <div style={inputContainerStyle}>
+                        <sl-input
+                            type="password"
+                            label="Password"
+                            placeholder="Create a password"
+                            value={password}
+                            onInput={(e: { target: { value: string } }) => setPassword(e.target.value)}
+                            required
+                            style={{ width: '100%' }}
+                            size="medium"
+                            togglePassword
+                        ></sl-input>
+                    </div>
+                    
+                    <div style={{ marginTop: '2rem' }}>
+                        <sl-button
+                            type="submit"
+                            variant="primary"
+                            loading={loading}
+                            style={{ width: '100%' }}
+                            size="medium"
+                        >
+                            {loading ? 'Creating Account...' : 'Sign Up'}
+                        </sl-button>
+                    </div>
+                </form>
                 
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.currentTarget.value)}
-                        required
-                        style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            borderRadius: '4px',
-                            border: '1px solid #ddd'
-                        }}
-                    />
+                <div slot="footer" style={{ textAlign: 'center', padding: '0.75rem 0' }}>
+                    <sl-divider style={{ margin: '0.5rem 0 1rem 0' }}></sl-divider>
+                    <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                        Already have an account?
+                        <sl-button
+                            variant="text"
+                            size="small"
+                            onClick={goToLogin}
+                            style={{ color: '#4CAF50', fontWeight: 'bold', marginLeft: '0.25rem' }}
+                        >
+                            Log In
+                        </sl-button>
+                    </div>
                 </div>
-                
-                <button
-                    type="submit"
-                    disabled={loading}
-                    style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        backgroundColor: '#4CAF50',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        opacity: loading ? 0.7 : 1
-                    }}
-                >
-                    {loading ? 'Creating Account...' : 'Sign Up'}
-                </button>
-            </form>
-            
-            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-                <p>Already have an account?
-                    <button
-                        onClick={goToLogin}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#4CAF50',
-                            cursor: 'pointer',
-                            padding: '0 0.5rem',
-                            fontSize: 'inherit',
-                            textDecoration: 'underline'
-                        }}
-                    >
-                        Log In
-                    </button>
-                </p>
-            </div>
+            </sl-card>
         </div>
     );
 };

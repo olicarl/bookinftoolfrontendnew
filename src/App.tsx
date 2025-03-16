@@ -81,28 +81,29 @@ export function App() {
         }
     };
 
-    // If not logged in, only show login/signup pages
-    if (!session && !['/login', '/signup'].includes(currentPath)) {
-        return (
-            <AppContext.Provider value={{ session, flashMessages, setFlashMessages }}>
-                <Router>
-                    <Login path="/login" />
-                    <Signup path="/signup" />
-                    <Login default />
-                </Router>
-            </AppContext.Provider>
-        );
-    }
+    // Determine if we're on an auth page (login/signup)
+    const isAuthPage = !session && ['/login', '/signup'].includes(currentPath);
 
-    // Main app with navigation
+    // Use AppLayout for all pages, with different content based on auth state
     return (
         <AppContext.Provider value={{ session, flashMessages, setFlashMessages }}>
-            <AppLayout currentPath={currentPath} navigateTo={navigateTo}>
+            <AppLayout 
+                currentPath={currentPath} 
+                navigateTo={navigateTo}
+                showNavigation={!!session} // Only show navigation when logged in
+            >
                 <Router onChange={handleRoute}>
+                    {/* Available to logged in users */}
                     <Settings path="/settings" />
                     <BookingPage path="/booking" />
                     <JoinOffice path="/join-office" />
-                    <Settings default />
+                    
+                    {/* Auth pages */}
+                    <Login path="/login" />
+                    <Signup path="/signup" />
+                    
+                    {/* Default routes */}
+                    {session ? <Settings default /> : <Login default />}
                 </Router>
             </AppLayout>
         </AppContext.Provider>
